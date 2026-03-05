@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "TSX Comment Checker",
+  "description": "Inspects TSX files on save and adds comments if they don't align with best practices",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.tsx"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the saved TSX file for commenting best practices. Check if components, complex logic, props interfaces, and key functions have appropriate comments. If commenting is insufficient, add clear, concise comments directly to the file following React/TypeScript best practices. Focus on explaining why code exists, not what it does."
+  }
+}

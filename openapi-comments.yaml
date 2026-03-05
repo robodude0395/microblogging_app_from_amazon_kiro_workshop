@@ -1,0 +1,408 @@
+openapi: 3.0.3
+info:
+  title: Social Media App - Comments API
+  description: |
+    API endpoints for managing comments on posts in the serverless social media application.
+
+    ## Authentication
+    Most endpoints require authentication via AWS Cognito JWT token passed in the Authorization header.
+
+    ## Features
+    - Create comments on posts
+    - Retrieve all comments for a post
+    - Delete comments (author only)
+
+  version: 1.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+
+servers:
+  - url: https://6bvgzz5vri.execute-api.us-east-1.amazonaws.com/prod
+    description: Production API
+
+tags:
+  - name: Comments
+    description: Operations related to post comments
+
+security:
+  - BearerAuth: []
+
+paths:
+  /posts/{postId}/comments:
+    post:
+      tags:
+        - Comments
+      summary: Create a new comment
+      description: |
+        Creates a new comment on a specific post. Requires authentication.
+        The authenticated user's ID and username are automatically attached to the comment.
+        Increments the post's comment count.
+      operationId: createComment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          description: The unique identifier of the post to comment on
+          schema:
+            type: string
+            format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: The comment text content
+                  minLength: 1
+                  maxLength: 500
+                  example: "Great post! Thanks for sharing this."
+            examples:
+              validComment:
+                summary: Valid comment
+                value:
+                  text: "This is really insightful, thanks for sharing!"
+              shortComment:
+                summary: Short comment
+                value:
+                  text: "Nice!"
+      responses:
+        '201':
+          description: Comment created successfully
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+            Access-Control-Allow-Credentials:
+              schema:
+                type: boolean
+                example: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Comment created successfully"
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+              examples:
+                success:
+                  summary: Successful comment creation
+                  value:
+                    message: "Comment created successfully"
+                    comment:
+                      id: "c1d2e3f4-a5b6-7890-cdef-123456789abc"
+                      postId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      userId: "user123"
+                      username: "johndoe"
+                      text: "This is really insightful, thanks for sharing!"
+                      createdAt: "2024-01-15T10:30:00.000Z"
+        '400':
+          description: Bad request - Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingBody:
+                  summary: Missing request body
+                  value:
+                    message: "Missing request body"
+                emptyText:
+                  summary: Empty comment text
+                  value:
+                    message: "Comment text cannot be empty"
+                textTooLong:
+                  summary: Comment text exceeds maximum length
+                  value:
+                    message: "Comment text cannot exceed 500 characters"
+                missingPostId:
+                  summary: Missing postId parameter
+                  value:
+                    message: "Missing postId parameter"
+        '401':
+          description: Unauthorized - Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unauthorized:
+                  summary: Authentication required
+                  value:
+                    message: "Unauthorized"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Server error
+                  value:
+                    message: "Error creating comment"
+                    error: "Internal server error"
+
+    get:
+      tags:
+        - Comments
+      summary: Get all comments for a post
+      description: |
+        Retrieves all comments for a specific post, sorted by creation date (oldest first).
+        This endpoint does not require authentication and is publicly accessible.
+      operationId: getComments
+      security: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          description: The unique identifier of the post
+          schema:
+            type: string
+            format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+            Access-Control-Allow-Credentials:
+              schema:
+                type: boolean
+                example: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+              examples:
+                withComments:
+                  summary: Post with multiple comments
+                  value:
+                    comments:
+                      - id: "c1d2e3f4-a5b6-7890-cdef-123456789abc"
+                        postId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        userId: "user123"
+                        username: "johndoe"
+                        text: "Great post!"
+                        createdAt: "2024-01-15T10:30:00.000Z"
+                      - id: "d2e3f4a5-b6c7-8901-def2-23456789abcd"
+                        postId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                        userId: "user456"
+                        username: "janedoe"
+                        text: "Thanks for sharing this."
+                        createdAt: "2024-01-15T11:45:00.000Z"
+                noComments:
+                  summary: Post with no comments
+                  value:
+                    comments: []
+        '400':
+          description: Bad request - Missing postId parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingPostId:
+                  summary: Missing postId
+                  value:
+                    message: "Missing postId parameter"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Server error
+                  value:
+                    message: "Error getting comments"
+                    error: "Internal server error"
+
+  /comments/{commentId}:
+    delete:
+      tags:
+        - Comments
+      summary: Delete a comment
+      description: |
+        Deletes a specific comment. Only the comment author can delete their own comments.
+        Decrements the post's comment count.
+      operationId: deleteComment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          description: The unique identifier of the comment to delete
+          schema:
+            type: string
+            format: uuid
+          example: "c1d2e3f4-a5b6-7890-cdef-123456789abc"
+      responses:
+        '200':
+          description: Comment deleted successfully
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+            Access-Control-Allow-Credentials:
+              schema:
+                type: boolean
+                example: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Comment deleted successfully"
+              examples:
+                success:
+                  summary: Successful deletion
+                  value:
+                    message: "Comment deleted successfully"
+        '400':
+          description: Bad request - Missing commentId parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingCommentId:
+                  summary: Missing commentId
+                  value:
+                    message: "Missing commentId parameter"
+        '401':
+          description: Unauthorized - Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unauthorized:
+                  summary: Authentication required
+                  value:
+                    message: "Unauthorized"
+        '403':
+          description: Forbidden - User is not the comment author
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                notAuthor:
+                  summary: Not authorized to delete
+                  value:
+                    message: "You are not authorized to delete this comment"
+        '404':
+          description: Comment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                notFound:
+                  summary: Comment does not exist
+                  value:
+                    message: "Comment not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Server error
+                  value:
+                    message: "Error deleting comment"
+                    error: "Internal server error"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        AWS Cognito JWT token. Obtain this token by authenticating via the /auth/login endpoint.
+        Include the token in the Authorization header as: `Bearer <token>`
+
+  schemas:
+    Comment:
+      type: object
+      required:
+        - id
+        - postId
+        - userId
+        - username
+        - text
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the comment
+          example: "c1d2e3f4-a5b6-7890-cdef-123456789abc"
+        postId:
+          type: string
+          format: uuid
+          description: ID of the post this comment belongs to
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        userId:
+          type: string
+          description: ID of the user who created the comment
+          example: "user123"
+        username:
+          type: string
+          description: Username of the comment author
+          example: "johndoe"
+        text:
+          type: string
+          description: The comment text content
+          minLength: 1
+          maxLength: 500
+          example: "This is a great post! Thanks for sharing."
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the comment was created
+          example: "2024-01-15T10:30:00.000Z"
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Error creating comment"
+        error:
+          type: string
+          description: Additional error details (optional)
+          example: "Internal server error"
